@@ -46,15 +46,7 @@ inline void processLine(std::stringstream &sstream, unsigned int indices[3][3])
         //std::cout << "****************************" << std::endl;
         //std::cout << std::endl;
     }
-    //rearranging the indices
-    /*for(int i=0; i<3; i++){
-    //first align texture coord with vertex indices
-    if(indices[0][i]!=indices[1][i]){
-    k
-    }
-    }*/
 }
-
 
 static void processInstructions(std::string instrucLine, std::vector<glm::vec3> &vertexArray, std::vector<glm::vec3> &normalArray, std::vector<glm::vec2> &textureArray, std::vector< unsigned int > &indicesArray)
 {
