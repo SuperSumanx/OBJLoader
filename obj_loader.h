@@ -1,8 +1,10 @@
 #ifndef OBJ_LOADER
 #define OBJ_LOADER
 
+#include "gl_core_3_3.hpp"
 #include <glm/glm.hpp>
 #include <iostream>
+#include <utility>
 #include <fstream>
 #include <string>
 #include <sstream>
@@ -10,7 +12,7 @@
 #include <cmath>
 #include <array>
 
-inline void processLine(std::stringstream &sstream, unsigned int indices[3][3])
+void processLine(std::stringstream &sstream, unsigned int indices[3][3])
 {
     std::string temp;
 
@@ -43,15 +45,13 @@ inline void processLine(std::stringstream &sstream, unsigned int indices[3][3])
             delimiter=seperatorIndex;
             continue;
         }
-        //std::cout << "****************************" << std::endl;
-        //std::cout << std::endl;
     }
 }
 
-static void processInstructions(std::string instrucLine, std::vector<glm::vec3> &vertexArray, std::vector<glm::vec3> &normalArray, std::vector<glm::vec2> &textureArray, std::vector< unsigned int > &indicesArray)
+static void processInstructions(std::string instrucLine, std::vector<glm::vec3> &vertexArray, std::vector<glm::vec3> &normalArray, std::vector<glm::vec2> &textureArray, std::vector< unsigned int > &indicesArray, std::vector<unsigned int> &texIndices, std::vector<unsigned int> &normalIndices)
 {
     std::stringstream objLine;
-    objLine.precision(10); //we want a precision of 10 decimal places
+    objLine.precision(10); //we want a precision of 10 decimal places objLine << instrucLine;
     objLine << instrucLine;
 
     std::string str;
@@ -108,14 +108,14 @@ static void processInstructions(std::string instrucLine, std::vector<glm::vec3> 
         //std::cout << std::endl << "Now printing and storing array " << std::endl;
         for(int i=0; i<3; i++)
         {
-            //std::cout << "Pushing " << indices[0][i] << std::endl;
             indicesArray.push_back(indices[0][i]);
-            //std::cout << std::endl;
+            texIndices.push_back(indices[1][i]);
+            normalIndices.push_back(indices[2][i]);
         }
     }
 }
 
-bool load_obj(const char * objPath, std::vector<glm::vec3> &vertexArray, std::vector<glm::vec3> &normalArray, std::vector<glm::vec2> &textureArray, std::vector < unsigned int > &indicesArray)
+bool load_obj(const char * objPath, std::vector<glm::vec3> &vertexArray, std::vector<glm::vec3> &normalArray, std::vector<glm::vec2> &textureArray)
 {
     std::ifstream objStream;
     objStream.open(objPath);
@@ -123,13 +123,61 @@ bool load_obj(const char * objPath, std::vector<glm::vec3> &vertexArray, std::ve
     if(objStream.good())   //if there are not problems in opening the file
     {
         std::string objLine;
+        std::vector<glm::vec3> vertTempArray, normalTempArray;
+        std::vector<glm::vec2> uvTempArray;
+        std::vector<unsigned int>  vertIndices, normalIndices, texIndices;
         while(!objStream.eof())
         {
             std::getline(objStream, objLine);
-            processInstructions(objLine, vertexArray, normalArray, textureArray, indicesArray);
+            processInstructions(objLine, vertTempArray, normalTempArray, uvTempArray, vertIndices, texIndices, normalIndices);
         }
+        std::cout << "Size of unsigned int " << sizeof(unsigned int) << " and size of GLfloat " << sizeof(GLdouble) << std::endl;
+        std::cout << "The number of normals indices " << vertIndices.size() << std::endl;
+        std::cout << "The number of texture indices " << texIndices.size() << std::endl;
+        std::cout << "The number of vertex indices " << normalIndices.size() << std::endl;
+        std::cout << "Size of vertex + indices " << (sizeof(float) * 3 * vertTempArray.size ()) + sizeof(unsigned int) * vertIndices.size() << std::endl;
+
+        //Unfurling the vertices
+        glm::vec3 tempVert, tempNormal;
+        glm::vec2 tempUV;
+        for(int i=0; i<vertIndices.size(); i++)
+        {
+            tempVert=vertTempArray[vertIndices[i]];
+            vertexArray.push_back(tempVert);
+        }
+
+        if(uvTempArray.size()!=0)
+        {
+            for(int i=0; i<texIndices.size(); i++)
+            {
+                tempUV=(uvTempArray[texIndices[i]]);
+                textureArray.push_back(tempUV);
+            }
+        }
+
+        if(normalTempArray.size()!=0)
+        {
+            for(int i=0; i<normalIndices.size(); i++)
+            {
+                tempNormal = (normalTempArray[normalIndices[i]]);
+                normalArray.push_back(tempNormal);
+            }
+        }
+        else
+        {
+            //compute them
+            for(int i=0; i<vertexArray.size()-2; i++)
+            {
+                glm::vec3 surfaceNormal = glm::normalize( glm::cross(vertexArray[i+1]-vertexArray[i], vertexArray[i+2]-vertexArray[i]) );
+                normalArray.push_back(surfaceNormal);
+            }
+            std::cout << normalArray.size() << std::endl;
+            std::cout << vertexArray.size() << std::endl;
+        }
+        std::cout << "Size of vertexes " << sizeof(float) * 3 * vertexArray.size () << std::endl;
         return true; //FIXME
     }
+
     else
     {
         std::cerr << "obj_loader :\tFailed " << std::endl;
